@@ -64,12 +64,10 @@ local function InstalledServers(servers)
             Ui.When(
                 server.is_expanded,
                 Indent {
-                    Ui.HlTextNode {
+                    Ui.Table {
                         {
-                            {
-                                ("Installed %s"):format(get_relative_install_time(server.creation_time)),
-                                "LspInstallerGray",
-                            },
+                            { "Installed: ", "LspInstallerGray" },
+                            { get_relative_install_time(server.creation_time), "" },
                         },
                     },
                 }

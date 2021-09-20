@@ -7,6 +7,7 @@ M.NodeType = Data.enum {
     "VIRTUAL_TEXT",
     "HL_TEXT",
     "KEYBIND_HANDLER",
+    "TABLE",
 }
 
 function M.Node(children)
@@ -76,6 +77,13 @@ end
 
 function M.EmptyLine()
     return M.Text { "" }
+end
+
+function M.Table(rows)
+    return {
+        type = M.NodeType.TABLE,
+        rows = rows,
+    }
 end
 
 return M
