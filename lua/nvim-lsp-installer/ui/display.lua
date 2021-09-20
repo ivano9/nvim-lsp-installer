@@ -40,11 +40,13 @@ local function render_node(context, node, _render_context, _output)
         context = context,
         applied_block_styles = {},
     }
-    local output = _output or {
-        lines = {},
-        virt_texts = {},
-        highlights = {},
-    }
+    local output = _output
+        or {
+            lines = {},
+            virt_texts = {},
+            highlights = {},
+            keybinds = {},
+        }
 
     if node.type == Ui.NodeType.VIRTUAL_TEXT then
         output.virt_texts[#output.virt_texts + 1] = {
@@ -92,6 +94,12 @@ local function render_node(context, node, _render_context, _output)
         if node.type == Ui.NodeType.CASCADING_STYLE then
             render_context.applied_block_styles[#render_context.applied_block_styles] = nil
         end
+    elseif node.type == Ui.NodeType.KEYBIND_HANDLER then
+        output.keybinds[#output.keybinds + 1] = {
+            line = #output.lines,
+            key = node.key,
+            handler = node.handler,
+        }
     end
 
     return output
@@ -159,7 +167,8 @@ function M.new_view_only_win(name)
             win_width = win_width,
         }
         local output = render_node(context, view)
-        local lines, virt_texts, highlights = output.lines, output.virt_texts, output.highlights
+        local lines, virt_texts, highlights, keybinds =
+            output.lines, output.virt_texts, output.highlights, output.keybinds
 
         vim.api.nvim_buf_clear_namespace(0, namespace, 0, -1)
         vim.api.nvim_buf_set_option(buf, "modifiable", true)
@@ -180,6 +189,19 @@ function M.new_view_only_win(name)
                 highlight.line,
                 highlight.col_start,
                 highlight.col_end
+            )
+        end
+        function _G.lol_william()
+            print("lol william", vim.inspect(output.keybinds))
+        end
+        for i = 1, #keybinds do
+            local keybind = keybinds[i]
+            vim.api.nvim_buf_set_keymap(
+                buf,
+                "n",
+                keybind.key,
+                "call v:lua.lol_william()",
+                { nowait = true, silent = true, noremap = true }
             )
         end
     end)

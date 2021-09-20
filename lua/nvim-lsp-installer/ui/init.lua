@@ -6,6 +6,7 @@ M.NodeType = Data.enum {
     "CASCADING_STYLE",
     "VIRTUAL_TEXT",
     "HL_TEXT",
+    "KEYBIND_HANDLER",
 }
 
 function M.Node(children)
@@ -61,6 +62,14 @@ function M.When(condition, a)
         end
     end
     return M.Node {}
+end
+
+function M.Keybind(key, handler)
+    return {
+        type = M.NodeType.KEYBIND_HANDLER,
+        key = key,
+        handler = handler,
+    }
 end
 
 function M.EmptyLine()

@@ -16,6 +16,9 @@ end
 
 local function Header()
     return Ui.CascadingStyleNode({ Ui.CascadingStyle.CENTERED }, {
+        Ui.Keybind("<CR>", function ()
+            print("I am in handler, wow!")
+        end),
         Ui.HlTextNode {
             { { "nvim-lsp-installer", "LspInstallerHeader" } },
             { { "https://github.com/williamboman/nvim-lsp-installer", "LspInstallerLink" } },
