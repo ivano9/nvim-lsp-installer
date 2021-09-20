@@ -5,6 +5,23 @@ local state = require "nvim-lsp-installer.ui.state"
 
 local M = {}
 
+-- TODO fix these names yikes
+local effects_by_bufnr = {}
+local keybinds_by_bufnr = {}
+
+function _G.lol_william(bufnr, effect)
+    local effects = effects_by_bufnr[bufnr]
+    local line = vim.api.nvim_win_get_cursor(0)[1]
+    local keybind = keybinds_by_bufnr[bufnr][("%d_%s"):format(line, effect)]
+    if not keybind then
+        return
+    end
+    local shit = effects[keybind.effect]
+    if shit then
+        shit(keybind.payload)
+    end
+end
+
 local redraw_by_winnr = {}
 
 function _G.lsp_install_redraw(winnr)
@@ -98,7 +115,8 @@ local function render_node(context, node, _render_context, _output)
         output.keybinds[#output.keybinds + 1] = {
             line = #output.lines,
             key = node.key,
-            handler = node.handler,
+            effect = node.effect,
+            payload = node.payload,
         }
     end
 
@@ -191,16 +209,16 @@ function M.new_view_only_win(name)
                 highlight.col_end
             )
         end
-        function _G.lol_william()
-            print("lol william", vim.inspect(output.keybinds))
-        end
+        keybinds_by_bufnr[buf] = {}
         for i = 1, #keybinds do
             local keybind = keybinds[i]
+            local id = ("%s_%s"):format(keybind.line, keybind.effect)
+            keybinds_by_bufnr[buf][id] = keybind
             vim.api.nvim_buf_set_keymap(
                 buf,
                 "n",
                 keybind.key,
-                "call v:lua.lol_william()",
+                ("<cmd>call v:lua.lol_william(%d, %q)<cr>"):format(buf, keybind.effect),
                 { nowait = true, silent = true, noremap = true }
             )
         end
@@ -229,6 +247,7 @@ function M.new_view_only_win(name)
             end
             unsubscribe(false)
             local opened_win = open(opts)
+            effects_by_bufnr[buf] = opts.effects
             draw(renderer(get_state()))
             redraw_by_winnr[opened_win] = function()
                 draw(renderer(get_state()))

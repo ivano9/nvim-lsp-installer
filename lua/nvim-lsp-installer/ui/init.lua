@@ -64,11 +64,13 @@ function M.When(condition, a)
     return M.Node {}
 end
 
-function M.Keybind(key, handler)
+-- TODO rename?
+function M.Keybind(key, effect, payload)
     return {
         type = M.NodeType.KEYBIND_HANDLER,
         key = key,
-        handler = handler,
+        effect = effect,
+        payload = payload,
     }
 end
 

@@ -16,9 +16,6 @@ end
 
 local function Header()
     return Ui.CascadingStyleNode({ Ui.CascadingStyle.CENTERED }, {
-        Ui.Keybind("<CR>", function ()
-            print("I am in handler, wow!")
-        end),
         Ui.HlTextNode {
             { { "nvim-lsp-installer", "LspInstallerHeader" } },
             { { "https://github.com/williamboman/nvim-lsp-installer", "LspInstallerLink" } },
@@ -59,14 +56,24 @@ local function InstalledServers(servers)
         return Ui.Node {
             Ui.HlTextNode {
                 {
-                    { LIST_ICON, "LspInstallerGreen" },
-                    { " " .. server.name, "Normal" },
-                    {
-                        (" installed %s"):format(get_relative_install_time(server.creation_time)),
-                        "Comment",
-                    },
+                    { server.is_expanded and "⏣" or LIST_ICON, "LspInstallerGreen" },
+                    { " " .. server.name, server.is_expanded and "LspInstallerServerExpanded" or "" },
                 },
             },
+            Ui.Keybind("<CR>", "EXPAND_SERVER", { server.name }),
+            Ui.When(
+                server.is_expanded,
+                Indent {
+                    Ui.HlTextNode {
+                        {
+                            {
+                                ("Installed %s"):format(get_relative_install_time(server.creation_time)),
+                                "LspInstallerGray",
+                            },
+                        },
+                    },
+                }
+            ),
         }
     end, servers))
 end
@@ -95,7 +102,7 @@ local function PendingServers(servers)
             Ui.HlTextNode {
                 {
                     { LIST_ICON, has_failed and "LspInstallerError" or "LspInstallerOrange" },
-                    { " " .. server.name, server.installer.is_running and "Normal" or "LspInstallerGray" },
+                    { " " .. server.name, server.installer.is_running and "" or "LspInstallerGray" },
                     { " " .. note, "Comment" },
                     { has_failed and "" or (" " .. get_last_non_empty_line(server.installer.tailed_output)), "Comment" },
                 },
@@ -221,6 +228,7 @@ local function create_server_state(server)
     return {
         name = server.name,
         is_installed = server:is_installed(),
+        is_expanded = false,
         creation_time = creation_time,
         installer = {
             is_queued = false,
@@ -257,12 +265,21 @@ local function init(all_servers)
             win_width = 95,
             highlight_groups = {
                 "hi def LspInstallerHeader gui=bold guifg=#ebcb8b",
+                "hi def LspInstallerServerExpanded gui=italic",
                 "hi def link LspInstallerLink Comment",
                 "hi def LspInstallerHeading gui=bold",
                 "hi def LspInstallerGreen guifg=#a3be8c",
                 "hi def LspInstallerOrange ctermfg=222 guifg=#ebcb8b",
                 "hi def LspInstallerGray guifg=#888888 ctermfg=144",
                 "hi def LspInstallerError ctermfg=203 guifg=#f44747",
+            },
+            effects = {
+                ["EXPAND_SERVER"] = function(payload)
+                    local server_name = payload[1]
+                    mutate_state(function(state)
+                        state.servers[server_name].is_expanded = not state.servers[server_name].is_expanded
+                    end)
+                end,
             },
         }
     end
@@ -295,6 +312,7 @@ local function init(all_servers)
                     state.servers[server.name].installer.tailed_output = {}
                 end
                 state.servers[server.name].is_installed = success
+                state.servers[server.name].is_expanded = true
                 state.servers[server.name].creation_time = os.time()
                 state.servers[server.name].installer.is_running = false
                 state.servers[server.name].installer.has_run = true
