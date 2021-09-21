@@ -7,7 +7,6 @@ M.NodeType = Data.enum {
     "VIRTUAL_TEXT",
     "HL_TEXT",
     "KEYBIND_HANDLER",
-    "TABLE",
 }
 
 function M.Node(children)
@@ -80,10 +79,26 @@ function M.EmptyLine()
 end
 
 function M.Table(rows)
-    return {
-        type = M.NodeType.TABLE,
-        rows = rows,
-    }
+    local col_maxwidth = {}
+    for i = 1, #rows do
+        local row = rows[i]
+        for j = 1, #row do
+            local col = row[j]
+            local content = col[1]
+            col_maxwidth[j] = math.max(#content, col_maxwidth[j] or 0)
+        end
+    end
+
+    for i = 1, #rows do
+        local row = rows[i]
+        for j = 1, #row do
+            local col = row[j]
+            local content = col[1]
+            col[1] = content .. string.rep(" ", (col_maxwidth[j] - #content) + 1) -- +1 for default minimum padding
+        end
+    end
+
+    return M.HlTextNode(rows)
 end
 
 return M

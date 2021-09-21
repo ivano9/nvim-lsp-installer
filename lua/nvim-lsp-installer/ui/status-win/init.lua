@@ -66,7 +66,7 @@ local function InstalledServers(servers)
                 Indent {
                     Ui.Table {
                         {
-                            { "Installed: ", "LspInstallerGray" },
+                            { "Installed:", "LspInstallerGray" },
                             { get_relative_install_time(server.creation_time), "" },
                         },
                     },
