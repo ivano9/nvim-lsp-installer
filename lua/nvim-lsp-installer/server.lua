@@ -43,11 +43,24 @@ function M.Server:new(opts)
         _post_setup = opts.post_setup,
         _pre_setup = opts.pre_setup,
         _get_installed_packages = opts.get_installed_packages,
+        _get_latest_available_packages = opts.get_latest_available_packages,
     }, M.Server)
 end
 
 function M.Server:get_installed_packages(callback)
-    self._get_installed_packages(callback)
+    if self._get_installed_packages then
+        self._get_installed_packages(callback)
+    else
+        callback {}
+    end
+end
+
+function M.Server:get_latest_available_packages(callback)
+    if self._get_latest_available_packages then
+        self._get_latest_available_packages(callback)
+    else
+        callback {}
+    end
 end
 
 function M.Server:setup(opts)

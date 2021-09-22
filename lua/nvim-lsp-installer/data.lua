@@ -33,11 +33,16 @@ function Data.list_map(fn, list)
     return result
 end
 
-function Data.list_not_nil(list)
+function Data.table_pack(...)
+    return { n = select("#", ...), ... }
+end
+
+function Data.list_not_nil(...)
     local result = {}
-    for i = 1, #list do
-        if list[i] ~= nil then
-            result[#result + 1] = list[i]
+    local args = Data.table_pack(...)
+    for i = 1, args.n do
+        if args[i] ~= nil then
+            result[#result + 1] = args[i]
         end
     end
     return result
@@ -49,6 +54,10 @@ end
 
 function Data.when(condition, value)
     return condition and value or nil
+end
+
+function Data.lazy(condition, fn)
+    return condition and fn() or nil
 end
 
 function Data.coalesce(...)

@@ -22,6 +22,13 @@ return function(name, root_dir)
                 }
             end, 1500)
         end,
+        get_latest_available_packages = function(callback)
+            vim.defer_fn(function()
+                callback {
+                    { "github.com/sumneko/vscode-lua", "v2.4.0" },
+                }
+            end, 1500)
+        end,
         installer = {
             std.unzip_remote "https://github.com/sumneko/vscode-lua/releases/download/v2.3.6/lua-2.3.6.vsix",
             -- see https://github.com/sumneko/vscode-lua/pull/43

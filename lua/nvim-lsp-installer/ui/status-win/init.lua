@@ -52,8 +52,8 @@ local function get_relative_install_time(time)
     end
 end
 
-local function InstalledServerMetadata(server)
-    local installed_packages
+local function ServerMetadata(server)
+    local installed_packages, latest_available_packages
     if server.metadata.installed_packages then
         installed_packages = table.concat(
             Data.list_map(function(package_tuple)
@@ -62,25 +62,45 @@ local function InstalledServerMetadata(server)
             ", "
         )
     end
+    if server.metadata.latest_available_packages then
+        latest_available_packages = table.concat(
+            Data.list_map(function(package_tuple)
+                return ("%s@%s"):format(package_tuple[1], package_tuple[2])
+            end, server.metadata.latest_available_packages),
+            ", "
+        )
+    end
 
-    return Ui.Table(Data.list_not_nil {
-        {
-            { "Installation date", "LspInstallerGray" },
-            { get_relative_install_time(server.metadata.creation_time), "" },
-        },
-        Data.when(installed_packages, {
-            { "Installed packages", "LspInstallerGray" },
-            { installed_packages, "" },
-        }),
+    return Ui.Table(Data.list_not_nil(
+        Data.lazy(server.metadata.install_timestamp_seconds, function()
+            return {
+                { "Installation date", "LspInstallerGray" },
+                { get_relative_install_time(server.metadata.install_timestamp_seconds), "" },
+            }
+        end),
+        Data.lazy(installed_packages, function()
+            return {
+                { "Installed packages", "LspInstallerGray" },
+                { installed_packages, "" },
+            }
+        end),
+        Data.lazy(latest_available_packages, function()
+            return {
+                { "Latest available packages", "LspInstallerGray" },
+                { latest_available_packages, "" },
+            }
+        end),
         {
             { "Install directory", "LspInstallerGray" },
             { server.metadata.install_dir, "" },
         },
-        Data.when(server.metadata.homepage, {
-            { "Homepage", "LspInstallerGray" },
-            { server.metadata.homepage, "" },
-        }),
-    })
+        Data.lazy(server.metadata.homepage, function()
+            return {
+                { "Homepage", "LspInstallerGray" },
+                { server.metadata.homepage, "" },
+            }
+        end)
+    ))
 end
 
 local function InstalledServers(servers)
@@ -95,7 +115,7 @@ local function InstalledServers(servers)
             Ui.Keybind("<CR>", "EXPAND_SERVER", { server.name }),
             Ui.When(server.is_expanded, function()
                 return Indent {
-                    InstalledServerMetadata(server),
+                    ServerMetadata(server),
                 }
             end),
         }
@@ -154,6 +174,12 @@ local function UninstalledServers(servers)
                     { server.uninstaller.has_run and " (just uninstalled)" or "", "Comment" },
                 },
             },
+            Ui.Keybind("<CR>", "EXPAND_SERVER", { server.name }),
+            Ui.When(server.is_expanded, function()
+                return Indent {
+                    ServerMetadata(server),
+                }
+            end),
         }
     end, servers))
 end
@@ -242,14 +268,15 @@ local function Servers(servers)
     }
 end
 
-local function create_server_state(server)
+local function create_initial_server_state(server)
     return {
         name = server.name,
         is_installed = server:is_installed(),
         is_expanded = false,
         metadata = {
-            creation_time = nil,
+            install_timestamp_seconds = nil,
             installed_packages = nil,
+            latest_available_packages = nil,
             install_dir = server.root_dir,
             homepage = server.homepage,
         },
@@ -276,12 +303,33 @@ local function init(all_servers)
     local servers = {}
     for i = 1, #all_servers do
         local server = all_servers[i]
-        servers[server.name] = create_server_state(server)
+        servers[server.name] = create_initial_server_state(server)
     end
 
     local mutate_state, get_state = window.init {
         servers = servers,
     }
+
+    local function populate_server_metadata(server)
+        if server:is_installed() then
+            local ok, fstat = pcall(fs.fstat, server.root_dir)
+            if ok then
+                mutate_state(function(state)
+                    state.servers[server.name].metadata.install_timestamp_seconds = fstat.mtime.sec
+                end)
+            end
+            server:get_installed_packages(function(packages)
+                mutate_state(function(state)
+                    state.servers[server.name].metadata.installed_packages = packages
+                end)
+            end)
+        end
+        server:get_latest_available_packages(function(packages)
+            mutate_state(function(state)
+                state.servers[server.name].metadata.latest_available_packages = packages
+            end)
+        end)
+    end
 
     local function open()
         window.open {
@@ -299,21 +347,13 @@ local function init(all_servers)
             effects = {
                 ["EXPAND_SERVER"] = function(e)
                     local server_name = e.payload[1]
-                    mutate_state(function(state)
-                        local valid_server, server = lsp_servers.get_server(server_name)
-                        if valid_server then
-                            local ok, fstat = pcall(fs.fstat, server.root_dir)
-                            if ok then
-                                state.servers[server_name].metadata.creation_time = fstat.mtime.sec
-                            end
-                            server:get_installed_packages(function(packages)
-                                mutate_state(function(state)
-                                    state.servers[server_name].metadata.installed_packages = packages
-                                end)
-                            end)
-                        end
-                        state.servers[server_name].is_expanded = not state.servers[server_name].is_expanded
-                    end)
+                    local valid_server, server = lsp_servers.get_server(server_name)
+                    if valid_server then
+                        populate_server_metadata(server)
+                        mutate_state(function(state)
+                            state.servers[server_name].is_expanded = not state.servers[server_name].is_expanded
+                        end)
+                    end
                 end,
             },
         }
@@ -348,11 +388,10 @@ local function init(all_servers)
                 end
                 state.servers[server.name].is_installed = success
                 state.servers[server.name].is_expanded = true
-                -- TODO: fill metadata properly
-                state.servers[server.name].metadata.creation_time = os.time()
                 state.servers[server.name].installer.is_running = false
                 state.servers[server.name].installer.has_run = true
             end)
+            populate_server_metadata(server)
             on_complete()
         end)
     end
@@ -392,7 +431,7 @@ local function init(all_servers)
             end
             mutate_state(function(state)
                 -- reset state
-                state.servers[server.name] = create_server_state(server)
+                state.servers[server.name] = create_initial_server_state(server)
                 state.servers[server.name].installer.is_queued = true
             end)
             queue(server)
@@ -406,7 +445,8 @@ local function init(all_servers)
 
             local is_uninstalled, err = pcall(server.uninstall, server)
             mutate_state(function(state)
-                state.servers[server.name] = create_server_state(server)
+                -- reset state
+                state.servers[server.name] = create_initial_server_state(server)
                 if is_uninstalled then
                     state.servers[server.name].is_installed = false
                 end
