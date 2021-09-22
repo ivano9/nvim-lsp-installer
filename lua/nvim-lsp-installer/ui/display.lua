@@ -6,19 +6,19 @@ local state = require "nvim-lsp-installer.ui.state"
 local M = {}
 
 -- TODO fix these names yikes
-local effects_by_bufnr = {}
-local keybinds_by_bufnr = {}
+local effect_handlers_by_bufnr = {}
+local current_keybinds_by_bufnr = {}
 
 function _G.lol_william(bufnr, effect)
-    local effects = effects_by_bufnr[bufnr]
+    local buf_effect_handlers = effect_handlers_by_bufnr[bufnr]
     local line = vim.api.nvim_win_get_cursor(0)[1]
-    local keybind = keybinds_by_bufnr[bufnr][("%d_%s"):format(line, effect)]
+    local keybind = current_keybinds_by_bufnr[bufnr][effect][line]
     if not keybind then
         return
     end
-    local shit = effects[keybind.effect]
-    if shit then
-        shit(keybind.payload)
+    local effect_handler = buf_effect_handlers[keybind.effect]
+    if effect_handler then
+        effect_handler { payload = keybind.payload }
     end
 end
 
@@ -188,6 +188,7 @@ function M.new_view_only_win(name)
         local lines, virt_texts, highlights, keybinds =
             output.lines, output.virt_texts, output.highlights, output.keybinds
 
+        -- set line contents
         vim.api.nvim_buf_clear_namespace(0, namespace, 0, -1)
         vim.api.nvim_buf_set_option(buf, "modifiable", true)
         vim.api.nvim_buf_set_lines(buf, 0, -1, true, lines)
@@ -198,6 +199,8 @@ function M.new_view_only_win(name)
                 virt_text = virt_text.content,
             })
         end
+
+        -- set highlights
         for i = 1, #highlights do
             local highlight = highlights[i]
             vim.api.nvim_buf_add_highlight(
@@ -209,11 +212,17 @@ function M.new_view_only_win(name)
                 highlight.col_end
             )
         end
-        keybinds_by_bufnr[buf] = {}
+
+        -- set keybinds
+        local buf_keybinds = {}
+        current_keybinds_by_bufnr[buf] = buf_keybinds
         for i = 1, #keybinds do
             local keybind = keybinds[i]
-            local id = ("%s_%s"):format(keybind.line, keybind.effect)
-            keybinds_by_bufnr[buf][id] = keybind
+            if not buf_keybinds[keybind.effect] then
+                buf_keybinds[keybind.effect] = {}
+            end
+            buf_keybinds[keybind.effect][keybind.line] = keybind
+            -- TODO only do this once per mapping
             vim.api.nvim_buf_set_keymap(
                 buf,
                 "n",
@@ -247,7 +256,7 @@ function M.new_view_only_win(name)
             end
             unsubscribe(false)
             local opened_win = open(opts)
-            effects_by_bufnr[buf] = opts.effects
+            effect_handlers_by_bufnr[buf] = opts.effects
             draw(renderer(get_state()))
             redraw_by_winnr[opened_win] = function()
                 draw(renderer(get_state()))

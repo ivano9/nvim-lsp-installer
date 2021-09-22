@@ -33,6 +33,16 @@ function Data.list_map(fn, list)
     return result
 end
 
+function Data.list_not_nil(list)
+    local result = {}
+    for i = 1, #list do
+        if list[i] ~= nil then
+            result[#result + 1] = list[i]
+        end
+    end
+    return result
+end
+
 function Data.tbl_pack(...)
     return { n = select("#", ...), ... }
 end

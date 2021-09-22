@@ -36,12 +36,18 @@ function M.Server:new(opts)
     return setmetatable({
         name = opts.name,
         root_dir = opts.root_dir,
+        homepage = opts.homepage,
         _root_dir = opts.root_dir, -- @deprecated Use the `root_dir` property instead.
         _installer = type(opts.installer) == "function" and opts.installer or installers.pipe(opts.installer),
         _default_options = opts.default_options,
         _post_setup = opts.post_setup,
         _pre_setup = opts.pre_setup,
+        _get_installed_packages = opts.get_installed_packages,
     }, M.Server)
+end
+
+function M.Server:get_installed_packages(callback)
+    self._get_installed_packages(callback)
 end
 
 function M.Server:setup(opts)

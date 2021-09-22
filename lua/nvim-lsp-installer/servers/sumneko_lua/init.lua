@@ -14,6 +14,14 @@ return function(name, root_dir)
     return server.Server:new {
         name = name,
         root_dir = root_dir,
+        homepage = "https://github.com/sumneko/vscode-lua",
+        get_installed_packages = function(callback)
+            vim.defer_fn(function()
+                callback {
+                    { "github.com/sumneko/vscode-lua", "v2.3.6" },
+                }
+            end, 1500)
+        end,
         installer = {
             std.unzip_remote "https://github.com/sumneko/vscode-lua/releases/download/v2.3.6/lua-2.3.6.vsix",
             -- see https://github.com/sumneko/vscode-lua/pull/43

@@ -3,6 +3,7 @@ local fs = require "nvim-lsp-installer.fs"
 local log = require "nvim-lsp-installer.log"
 local Data = require "nvim-lsp-installer.data"
 local display = require "nvim-lsp-installer.ui.display"
+local lsp_servers = require "nvim-lsp-installer.servers"
 
 local function ServerGroupHeading(props)
     return Ui.HlTextNode {
@@ -51,6 +52,37 @@ local function get_relative_install_time(time)
     end
 end
 
+local function InstalledServerMetadata(server)
+    local installed_packages
+    if server.metadata.installed_packages then
+        installed_packages = table.concat(
+            Data.list_map(function(package_tuple)
+                return ("%s@%s"):format(package_tuple[1], package_tuple[2])
+            end, server.metadata.installed_packages),
+            ", "
+        )
+    end
+
+    return Ui.Table(Data.list_not_nil {
+        {
+            { "Installation date", "LspInstallerGray" },
+            { get_relative_install_time(server.metadata.creation_time), "" },
+        },
+        Data.when(installed_packages, {
+            { "Installed packages", "LspInstallerGray" },
+            { installed_packages, "" },
+        }),
+        {
+            { "Install directory", "LspInstallerGray" },
+            { server.metadata.install_dir, "" },
+        },
+        Data.when(server.metadata.homepage, {
+            { "Homepage", "LspInstallerGray" },
+            { server.metadata.homepage, "" },
+        }),
+    })
+end
+
 local function InstalledServers(servers)
     return Ui.Node(Data.list_map(function(server)
         return Ui.Node {
@@ -61,17 +93,11 @@ local function InstalledServers(servers)
                 },
             },
             Ui.Keybind("<CR>", "EXPAND_SERVER", { server.name }),
-            Ui.When(
-                server.is_expanded,
-                Indent {
-                    Ui.Table {
-                        {
-                            { "Installed:", "LspInstallerGray" },
-                            { get_relative_install_time(server.creation_time), "" },
-                        },
-                    },
+            Ui.When(server.is_expanded, function()
+                return Indent {
+                    InstalledServerMetadata(server),
                 }
-            ),
+            end),
         }
     end, servers))
 end
@@ -217,17 +243,16 @@ local function Servers(servers)
 end
 
 local function create_server_state(server)
-    local ok, fstat = pcall(fs.fstat, server.root_dir)
-    local creation_time
-    if ok then
-        creation_time = fstat.mtime.sec
-    end
-
     return {
         name = server.name,
         is_installed = server:is_installed(),
         is_expanded = false,
-        creation_time = creation_time,
+        metadata = {
+            creation_time = nil,
+            installed_packages = nil,
+            install_dir = server.root_dir,
+            homepage = server.homepage,
+        },
         installer = {
             is_queued = false,
             is_running = false,
@@ -272,9 +297,21 @@ local function init(all_servers)
                 "hi def LspInstallerError ctermfg=203 guifg=#f44747",
             },
             effects = {
-                ["EXPAND_SERVER"] = function(payload)
-                    local server_name = payload[1]
+                ["EXPAND_SERVER"] = function(e)
+                    local server_name = e.payload[1]
                     mutate_state(function(state)
+                        local valid_server, server = lsp_servers.get_server(server_name)
+                        if valid_server then
+                            local ok, fstat = pcall(fs.fstat, server.root_dir)
+                            if ok then
+                                state.servers[server_name].metadata.creation_time = fstat.mtime.sec
+                            end
+                            server:get_installed_packages(function(packages)
+                                mutate_state(function(state)
+                                    state.servers[server_name].metadata.installed_packages = packages
+                                end)
+                            end)
+                        end
                         state.servers[server_name].is_expanded = not state.servers[server_name].is_expanded
                     end)
                 end,
@@ -311,7 +348,8 @@ local function init(all_servers)
                 end
                 state.servers[server.name].is_installed = success
                 state.servers[server.name].is_expanded = true
-                state.servers[server.name].creation_time = os.time()
+                -- TODO: fill metadata properly
+                state.servers[server.name].metadata.creation_time = os.time()
                 state.servers[server.name].installer.is_running = false
                 state.servers[server.name].installer.has_run = true
             end)
@@ -384,7 +422,6 @@ return function()
     if win then
         return win
     end
-    local servers = require "nvim-lsp-installer.servers"
-    win = init(servers.get_available_servers())
+    win = init(lsp_servers.get_available_servers())
     return win
 end
