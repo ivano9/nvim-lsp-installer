@@ -6,6 +6,7 @@ local std = require "nvim-lsp-installer.installers.std"
 local shell = require "nvim-lsp-installer.installers.shell"
 local Data = require "nvim-lsp-installer.data"
 
+local REPO_URL = "github.com/haskell/haskell-language-server"
 local VERSION = "1.3.0"
 
 local target = Data.coalesce(
@@ -19,14 +20,15 @@ return function(name, root_dir)
         name = name,
         root_dir = root_dir,
         installer = {
-            std.untargz_remote(
-                ("https://github.com/haskell/haskell-language-server/releases/download/%s/%s"):format(VERSION, target)
-            ),
+            std.untargz_remote(("https://%s/releases/download/%s/%s"):format(REPO_URL, VERSION, target)),
             installers.on {
                 -- we can't use std.chmod because of shell wildcard expansion
                 unix = shell.bash [[ chmod +x haskell*]],
             },
         },
+        get_installed_packages = function(callback)
+            callback { { REPO_URL, VERSION } }
+        end,
         default_options = {
             cmd = { path.concat { root_dir, "haskell-language-server-wrapper", "--lsp" } },
             cmd_env = {

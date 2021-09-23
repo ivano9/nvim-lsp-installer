@@ -1,5 +1,6 @@
 local path = require "nvim-lsp-installer.path"
 local fs = require "nvim-lsp-installer.fs"
+local server = require "nvim-lsp-installer.server"
 local installers = require "nvim-lsp-installer.installers"
 local std = require "nvim-lsp-installer.installers.std"
 local platform = require "nvim-lsp-installer.platform"
@@ -35,7 +36,7 @@ function M.packages(packages)
             c.run(npm, { "init", "--yes" })
         end
         -- stylua: ignore end
-        c.run(npm, vim.list_extend({ "install" }, packages))
+        c.run(npm, vim.list_extend({ "install" }, packages or {}))
         c.spawn(callback)
     end)
 end
@@ -70,6 +71,80 @@ function M.executable(root_dir, executable)
         ".bin",
         platform.is_win and ("%s.cmd"):format(executable) or executable,
     }
+end
+
+function M.create_server(opts)
+    return server.Server:new {
+        name = opts.name,
+        root_dir = opts.root_dir,
+        installer = M.packages(opts.packages),
+        default_options = vim.tbl_deep_extend("force", {
+            cmd = vim.list_extend({ M.executable(opts.root_dir, opts.cmd) }, opts.args or {}),
+        }, opts.default_options or {}),
+        get_installed_packages = function(callback)
+            local stdio = process.in_memory_sink()
+            process.spawn(npm, {
+                args = vim.list_extend({ "ls", "--depth", "0", "--parseable", "--long" }, opts.packages),
+                cwd = opts.root_dir,
+                stdio_sink = stdio.sink,
+            }, function(success)
+                if success then
+                    local packages = {}
+                    for i = 1, #stdio.buffers.stdout do
+                        local line = stdio.buffers.stdout[i]
+                        for j = 1, #opts.packages do
+                            local package = opts.packages[j]
+                            local match = line and line:find(":" .. package .. "@") ~= nil
+                            if match then
+                                local version = vim.split(line, "@")[2]
+                                packages[#packages + 1] = { package, version }
+                            end
+                        end
+                    end
+                    callback(packages)
+                else
+                    callback(nil)
+                end
+            end)
+        end,
+        get_latest_available_packages = function(callback)
+            local stdio = process.in_memory_sink()
+            process.spawn(npm, {
+                args = { "outdated", "--parseable" },
+                cwd = opts.root_dir,
+                stdio_sink = stdio.sink,
+            }, function(success)
+                if success then
+                    local packages = {}
+                    for i = 1, #stdio.buffers.stdout do
+                        local line = stdio.buffers.stdout[i]
+                        for j = 1, #opts.packages do
+                            local package = opts.packages[j]
+                            local candidate = vim.split(line, ":")[2]
+                            if candidate and candidate:sub(1, #package + 1) == package .. "@" then
+                                local version = vim.split(candidate, "@")[2]
+                                packages[#packages + 1] = { package, version }
+                            end
+                        end
+                    end
+                    callback(packages)
+                else
+                    callback(nil)
+                end
+            end)
+        end,
+    }
+end
+
+function M.server_factory(opts)
+    return function(name, root_dir)
+        local merged_opts = vim.tbl_deep_extend("force", opts, {
+            name = name,
+            root_dir = root_dir,
+        })
+
+        return M.create_server(merged_opts)
+    end
 end
 
 return M

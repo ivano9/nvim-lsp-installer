@@ -25,6 +25,9 @@ return function(name, root_dir)
         default_options = {
             cmd = { bin_path, "--langserver" },
         },
+        get_installed_packages = function (callback)
+            -- TODO tflint --version
+        end,
         post_setup = function()
             function _G.lsp_installer_tflint_init()
                 notify "Installing TFLint plugins…"

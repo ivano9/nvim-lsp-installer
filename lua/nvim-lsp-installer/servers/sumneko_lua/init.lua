@@ -10,33 +10,25 @@ local bin_dir = Data.coalesce(
     Data.when(platform.is_win, "Windows")
 )
 
+local REPO_URL = "github.com/sumneko/vscode-lua"
+local VERSION = "2.3.6"
+
 return function(name, root_dir)
     return server.Server:new {
         name = name,
         root_dir = root_dir,
         homepage = "https://github.com/sumneko/vscode-lua",
-        get_installed_packages = function(callback)
-            vim.defer_fn(function()
-                callback {
-                    { "github.com/sumneko/vscode-lua", "v2.3.6" },
-                }
-            end, 1500)
-        end,
-        get_latest_available_packages = function(callback)
-            vim.defer_fn(function()
-                callback {
-                    { "github.com/sumneko/vscode-lua", "v2.4.0" },
-                }
-            end, 1500)
-        end,
         installer = {
-            std.unzip_remote "https://github.com/sumneko/vscode-lua/releases/download/v2.3.6/lua-2.3.6.vsix",
+            std.unzip_remote(("https://%s/releases/download/v%s/lua-%s.vsix"):format(REPO_URL, VERSION, VERSION)),
             -- see https://github.com/sumneko/vscode-lua/pull/43
             std.chmod(
                 "+x",
                 { "extension/server/bin/macOS/lua-language-server", "extension/server/bin/Linux/lua-language-server" }
             ),
         },
+        get_installed_packages = function(callback)
+            callback { { REPO_URL, VERSION } }
+        end,
         default_options = {
             cmd = {
                 -- We need to provide a _full path_ to the executable (sumneko_lua uses it to determine... things)

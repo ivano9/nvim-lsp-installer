@@ -4,6 +4,7 @@ local platform = require "nvim-lsp-installer.platform"
 local std = require "nvim-lsp-installer.installers.std"
 local Data = require "nvim-lsp-installer.data"
 
+local REPO_URL = "github.com/hashicorp/terraform-ls"
 local VERSION = "0.21.0"
 
 local target = Data.coalesce(
@@ -30,9 +31,12 @@ return function(name, root_dir)
         name = name,
         root_dir = root_dir,
         installer = std.unzip_remote(
-            ("https://github.com/hashicorp/terraform-ls/releases/download/v%s/%s"):format(VERSION, target),
+            ("https://%s/releases/download/v%s/%s"):format(REPO_URL, VERSION, target),
             "terraform-ls"
         ),
+        get_installed_packages = function(callback)
+            callback { { REPO_URL, VERSION } }
+        end,
         default_options = {
             cmd = { path.concat { root_dir, "terraform-ls", "terraform-ls" }, "serve" },
         },

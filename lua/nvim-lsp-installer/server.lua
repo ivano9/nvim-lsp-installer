@@ -51,7 +51,7 @@ function M.Server:get_installed_packages(callback)
     if self._get_installed_packages then
         self._get_installed_packages(callback)
     else
-        callback {}
+        callback(nil)
     end
 end
 
@@ -59,7 +59,7 @@ function M.Server:get_latest_available_packages(callback)
     if self._get_latest_available_packages then
         self._get_latest_available_packages(callback)
     else
-        callback {}
+        callback(nil)
     end
 end
 

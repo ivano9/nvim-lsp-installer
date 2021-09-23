@@ -2,8 +2,10 @@ local server = require "nvim-lsp-installer.server"
 local path = require "nvim-lsp-installer.path"
 local platform = require "nvim-lsp-installer.platform"
 local std = require "nvim-lsp-installer.installers.std"
+local git = require "nvim-lsp-installer.process.git"
 local Data = require "nvim-lsp-installer.data"
 
+local REPO_URL = "github.com/rust-analyzer/rust-analyzer"
 local VERSION = "2021-06-28"
 
 local target = Data.coalesce(
@@ -36,11 +38,29 @@ return function(name, root_dir)
         root_dir = root_dir,
         installer = {
             std.gunzip_remote(
-                ("https://github.com/rust-analyzer/rust-analyzer/releases/download/%s/%s"):format(VERSION, target),
+                ("https://%s/releases/download/%s/%s"):format(REPO_URL, VERSION, target),
                 platform.is_win and "rust-analyzer.exe" or "rust-analyzer"
             ),
             std.chmod("+x", { "rust-analyzer" }),
         },
+        get_installed_packages = function(callback)
+            git.get_head_sha(root_dir, function(sha)
+                if sha then
+                    callback { { REPO_URL, sha } }
+                else
+                    callback(nil)
+                end
+            end)
+        end,
+        get_latest_available_packages = function(callback)
+            git.get_latest_upstream_sha(root_dir, function(sha)
+                if sha then
+                    callback { { REPO_URL, sha } }
+                else
+                    callback(nil)
+                end
+            end)
+        end,
         default_options = {
             cmd = { path.concat { root_dir, "rust-analyzer" } },
         },

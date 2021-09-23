@@ -1,13 +1,7 @@
-local server = require "nvim-lsp-installer.server"
 local npm = require "nvim-lsp-installer.installers.npm"
 
-return function(name, root_dir)
-    return server.Server:new {
-        name = name,
-        root_dir = root_dir,
-        installer = npm.packages { "ocaml-language-server" },
-        default_options = {
-            cmd = { npm.executable(root_dir, "ocaml-language-server"), "--stdio" },
-        },
-    }
-end
+return npm.server_factory {
+    packages = { "ocaml-language-server" },
+    cmd = "ocaml-language-server",
+    args = { "--stdio" },
+}

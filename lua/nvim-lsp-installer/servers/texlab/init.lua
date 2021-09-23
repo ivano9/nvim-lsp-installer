@@ -4,6 +4,7 @@ local std = require "nvim-lsp-installer.installers.std"
 local Data = require "nvim-lsp-installer.data"
 local platform = require "nvim-lsp-installer.platform"
 
+local REPO_URL = "github.com/latex-lsp/texlab"
 local VERSION = "v3.2.0"
 
 local target = Data.coalesce(
@@ -18,10 +19,13 @@ return function(name, root_dir)
         root_dir = root_dir,
         installer = {
             std.ensure_executables {
-                { "pdflatex" , "A TeX distribution is not installed. Refer to https://www.latex-project.org/get/." },
+                { "pdflatex", "A TeX distribution is not installed. Refer to https://www.latex-project.org/get/." },
             },
-            std.untargz_remote(("https://github.com/latex-lsp/texlab/releases/download/%s/%s"):format(VERSION, target)),
+            std.untargz_remote(("https://%s/releases/download/%s/%s"):format(REPO_URL, VERSION, target)),
         },
+        get_installed_packages = function(callback)
+            callback { { REPO_URL, VERSION } }
+        end,
         default_options = {
             cmd = { path.concat { root_dir, "texlab" } },
         },

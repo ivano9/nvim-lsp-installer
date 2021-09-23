@@ -144,6 +144,22 @@ function M.simple_sink()
     }
 end
 
+function M.in_memory_sink()
+    local stdout = {}
+    local stderr = {}
+    return {
+        buffers = { stdout = stdout, stderr = stderr },
+        sink = {
+            stdout = function(line)
+                stdout[#stdout + 1] = line
+            end,
+            stderr = function(line)
+                stderr[#stderr + 1] = line
+            end,
+        },
+    }
+end
+
 -- this prob belongs elsewhere ¯\_(ツ)_/¯
 function M.debounced(debounced_fn)
     local queued = false

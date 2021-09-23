@@ -1,5 +1,4 @@
 local util = require "lspconfig/util"
-local server = require "nvim-lsp-installer.server"
 local npm = require "nvim-lsp-installer.installers.npm"
 
 -- Angular requires a node_modules directory to probe for @angular/language-service and typescript
@@ -15,19 +14,19 @@ return function(name, root_dir)
     local default_probe_dir = get_probe_dir(vim.fn.getcwd())
     local executable_path = npm.executable(root_dir, "ngserver")
 
-    return server.Server:new {
+    npm.create_server {
         name = name,
         root_dir = root_dir,
-        installer = npm.packages { "@angular/language-server" },
+        packages = { "@angular/language-server" },
+        cmd = "ngserver",
+        args = {
+            "--stdio",
+            "--tsProbeLocations",
+            default_probe_dir,
+            "--ngProbeLocations",
+            default_probe_dir,
+        },
         default_options = {
-            cmd = {
-                executable_path,
-                "--stdio",
-                "--tsProbeLocations",
-                default_probe_dir,
-                "--ngProbeLocations",
-                default_probe_dir,
-            },
             on_new_config = function(new_config, new_root_dir)
                 local new_probe_dir = get_probe_dir(new_root_dir)
 

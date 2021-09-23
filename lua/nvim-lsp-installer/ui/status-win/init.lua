@@ -53,24 +53,6 @@ local function get_relative_install_time(time)
 end
 
 local function ServerMetadata(server)
-    local installed_packages, latest_available_packages
-    if server.metadata.installed_packages then
-        installed_packages = table.concat(
-            Data.list_map(function(package_tuple)
-                return ("%s@%s"):format(package_tuple[1], package_tuple[2])
-            end, server.metadata.installed_packages),
-            ", "
-        )
-    end
-    if server.metadata.latest_available_packages then
-        latest_available_packages = table.concat(
-            Data.list_map(function(package_tuple)
-                return ("%s@%s"):format(package_tuple[1], package_tuple[2])
-            end, server.metadata.latest_available_packages),
-            ", "
-        )
-    end
-
     return Ui.Table(Data.list_not_nil(
         Data.lazy(server.metadata.install_timestamp_seconds, function()
             return {
@@ -78,18 +60,14 @@ local function ServerMetadata(server)
                 { get_relative_install_time(server.metadata.install_timestamp_seconds), "" },
             }
         end),
-        Data.lazy(installed_packages, function()
-            return {
-                { "Installed packages", "LspInstallerGray" },
-                { installed_packages, "" },
-            }
-        end),
-        Data.lazy(latest_available_packages, function()
-            return {
-                { "Latest available packages", "LspInstallerGray" },
-                { latest_available_packages, "" },
-            }
-        end),
+        {
+            { "Installed version", "LspInstallerGray" },
+            { server.metadata.installed_packages or "Loading...", "" },
+        },
+        {
+            { "Latest version", "LspInstallerGray" },
+            { server.metadata.latest_available_packages or "Loading...", "" },
+        },
         {
             { "Install directory", "LspInstallerGray" },
             { server.metadata.install_dir, "" },
@@ -174,12 +152,6 @@ local function UninstalledServers(servers)
                     { server.uninstaller.has_run and " (just uninstalled)" or "", "Comment" },
                 },
             },
-            Ui.Keybind("<CR>", "EXPAND_SERVER", { server.name }),
-            Ui.When(server.is_expanded, function()
-                return Indent {
-                    ServerMetadata(server),
-                }
-            end),
         }
     end, servers))
 end
@@ -290,6 +262,15 @@ local function create_initial_server_state(server)
     }
 end
 
+local function stringify_package_tuples(package_tuples)
+    return table.concat(
+        Data.list_map(function(package_tuple)
+            return ("%s@%s"):format(package_tuple[1], package_tuple[2])
+        end, package_tuples),
+        ", "
+    )
+end
+
 local function init(all_servers)
     local window = display.new_view_only_win "LSP servers"
 
@@ -320,13 +301,21 @@ local function init(all_servers)
             end
             server:get_installed_packages(function(packages)
                 mutate_state(function(state)
-                    state.servers[server.name].metadata.installed_packages = packages
+                    if packages then
+                        state.servers[server.name].metadata.installed_packages = stringify_package_tuples(packages)
+                    else
+                        state.servers[server.name].metadata.installed_packages = "-"
+                    end
                 end)
             end)
         end
         server:get_latest_available_packages(function(packages)
             mutate_state(function(state)
-                state.servers[server.name].metadata.latest_available_packages = packages
+                if packages then
+                    state.servers[server.name].metadata.latest_available_packages = stringify_package_tuples(packages)
+                else
+                    state.servers[server.name].metadata.latest_available_packages = "-"
+                end
             end)
         end)
     end

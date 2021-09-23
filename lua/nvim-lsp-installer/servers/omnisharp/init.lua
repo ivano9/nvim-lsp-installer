@@ -4,6 +4,7 @@ local path = require "nvim-lsp-installer.path"
 local Data = require "nvim-lsp-installer.data"
 local std = require "nvim-lsp-installer.installers.std"
 
+local REPO_URL = "github.com/OmniSharp/omnisharp-roslyn"
 local VERSION = "v1.37.15"
 
 local target = Data.coalesce(
@@ -23,12 +24,12 @@ return function(name, root_dir)
         name = name,
         root_dir = root_dir,
         installer = {
-            std.unzip_remote(
-                ("https://github.com/OmniSharp/omnisharp-roslyn/releases/download/%s/%s"):format(VERSION, target),
-                "omnisharp"
-            ),
+            std.unzip_remote(("https://%s/releases/download/%s/%s"):format(REPO_URL, VERSION, target), "omnisharp"),
             std.chmod("+x", { "omnisharp/run" }),
         },
+        get_installed_packages = function(callback)
+            callback { { REPO_URL, VERSION } }
+        end,
         default_options = {
             cmd = {
                 platform.is_win and path.concat { root_dir, "OmniSharp.exe" } or path.concat {

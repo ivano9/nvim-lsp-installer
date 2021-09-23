@@ -4,6 +4,7 @@ local std = require "nvim-lsp-installer.installers.std"
 local Data = require "nvim-lsp-installer.data"
 local platform = require "nvim-lsp-installer.platform"
 
+local REPO_URL = "github.com/clojure-lsp/clojure-lsp"
 local VERSION = "2021.07.01-19.49.02"
 
 local target = Data.coalesce(
@@ -17,11 +18,12 @@ return function(name, root_dir)
         name = name,
         root_dir = root_dir,
         installer = {
-            std.unzip_remote(
-                ("https://github.com/clojure-lsp/clojure-lsp/releases/download/%s/%s"):format(VERSION, target)
-            ),
+            std.unzip_remote(("https://%s/releases/download/%s/%s"):format(REPO_URL, VERSION, target)),
             std.chmod("+x", { "clojure-lsp" }),
         },
+        get_installed_packages = function(callback)
+            callback { { REPO_URL, VERSION } }
+        end,
         default_options = {
             cmd = { path.concat { root_dir, "clojure-lsp" } },
         },
