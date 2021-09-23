@@ -84,7 +84,7 @@ function M.create_server(opts)
         get_installed_packages = function(callback)
             local stdio = process.in_memory_sink()
             process.spawn(npm, {
-                args = vim.list_extend({ "ls", "--depth", "0", "--parseable", "--long" }, opts.packages),
+                args = { "ls", "--depth", "0", "--parseable", "--long", opts.packages[1] },
                 cwd = opts.root_dir,
                 stdio_sink = stdio.sink,
             }, function(success)
@@ -92,13 +92,13 @@ function M.create_server(opts)
                     local packages = {}
                     for i = 1, #stdio.buffers.stdout do
                         local line = stdio.buffers.stdout[i]
-                        for j = 1, #opts.packages do
-                            local package = opts.packages[j]
-                            local match = line and line:find(":" .. package .. "@") ~= nil
-                            if match then
-                                local version = vim.split(line, "@")[2]
-                                packages[#packages + 1] = { package, version }
-                            end
+                        local package = opts.packages[1]
+                        local match = line and line:find(":" .. package .. "@", 1, true) ~= nil
+                        print(match, package, line)
+                        if match then
+                            local version = vim.split(line, "@")[2]
+                            print("version", version)
+                            packages[#packages + 1] = { package, version }
                         end
                     end
                     callback(packages)
@@ -110,24 +110,13 @@ function M.create_server(opts)
         get_latest_available_packages = function(callback)
             local stdio = process.in_memory_sink()
             process.spawn(npm, {
-                args = { "outdated", "--parseable" },
+                args = { "view", opts.packages[1], "version" },
                 cwd = opts.root_dir,
                 stdio_sink = stdio.sink,
             }, function(success)
                 if success then
-                    local packages = {}
-                    for i = 1, #stdio.buffers.stdout do
-                        local line = stdio.buffers.stdout[i]
-                        for j = 1, #opts.packages do
-                            local package = opts.packages[j]
-                            local candidate = vim.split(line, ":")[2]
-                            if candidate and candidate:sub(1, #package + 1) == package .. "@" then
-                                local version = vim.split(candidate, "@")[2]
-                                packages[#packages + 1] = { package, version }
-                            end
-                        end
-                    end
-                    callback(packages)
+                    local version = vim.trim(stdio.buffers.stdout[1])
+                    callback { { opts.packages[1], version } }
                 else
                     callback(nil)
                 end
