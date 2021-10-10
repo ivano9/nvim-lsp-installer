@@ -19,6 +19,7 @@ local INSTALL_DIRS = {
     ["cssls"] = vscode_langservers_extracted "cssls",
     ["dockerls"] = "dockerfile",
     ["elixirls"] = "elixir",
+    ["erlangls"] = "erlang",
     ["elmls"] = "elm",
     ["eslintls"] = "eslint",
     ["gopls"] = "go",
